@@ -300,9 +300,9 @@ Must return PEM text (`BEGIN PUBLIC KEY` / `END PUBLIC KEY`).
 
 ## Security notes
 
-- `config.json` contains sensitive token(s)
-- Do not commit real tokens or personal phone numbers
-- Rotate tokens if exposed
+- `config.json` contains sensitive data (access tokens, refresh tokens, OAuth client secret, phone numbers, sender allowlist names)
+- Do not commit real secrets or personal data
+- Rotate secrets/tokens if exposed
 
 ## Uninstall
 
