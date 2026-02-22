@@ -232,7 +232,7 @@ Example:
 - Redirect URI: `http://localhost:3000/callback`
 
 4. API scopes:
-- Enable `vehicle_device_data` (shown as `Fahrzeugdaten` in some locales)
+- Enable `vehicle_device_data`
 - `openid` and `offline_access` are requested during OAuth by the helper script
 
 5. Save app settings, then note:
