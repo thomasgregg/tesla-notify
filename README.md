@@ -165,6 +165,49 @@ Print full token when needed:
 ./scripts/get_tesla_token.py --interactive --skip-register --print-token
 ```
 
+## Tesla Developer Portal Setup (Required)
+
+Create and configure your Tesla app before running token setup.
+
+1. Open Tesla Developer Portal:
+- [https://developer.tesla.com](https://developer.tesla.com)
+- Create a new app (or open existing app)
+
+2. OAuth authorization type:
+- Select `Authorization Code + Machine to Machine`
+
+3. Configure URLs exactly:
+- Allowed Origin(s): `https://<your-public-key-domain>`
+- Allowed Redirect URI(s): `http://localhost:3000/callback`
+- Return URL(s) (if the UI asks): `http://localhost:3000/callback`
+
+Example:
+- Allowed Origin: `https://tesla-key-host.pages.dev`
+- Redirect URI: `http://localhost:3000/callback`
+
+4. API scopes:
+- Enable `vehicle_device_data` (shown as `Fahrzeugdaten` in some locales)
+- `openid` and `offline_access` are requested during OAuth by the helper script
+
+5. Save app settings, then note:
+- `client_id`
+- `client_secret`
+
+6. Run token helper:
+
+```bash
+./scripts/get_tesla_token.py
+```
+
+When prompted:
+- `client_id`: paste from Tesla app
+- `client_secret`: paste from Tesla app
+- `App domain from Tesla allowed_origins`: host only (no scheme), e.g. `tesla-key-host.pages.dev`
+
+Important:
+- `localhost:3000` is expected for OAuth callback on your Mac (local listener).
+- Your public key must be hosted on a public HTTPS domain (not localhost).
+
 ## Cloudflare Pages key hosting (recommended)
 
 Tesla partner registration requires a publicly hosted key at:
