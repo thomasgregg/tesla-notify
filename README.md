@@ -44,6 +44,26 @@ Tesla does not natively integrate with WhatsApp. This project bridges the gap on
 - iPhone paired to Tesla with message sharing enabled
 - Xcode Command Line Tools (`swiftc`, `swift`)
 
+## Tesla/iPhone Message Sharing (Required)
+
+Tesla can only display message notifications from your paired iPhone profile.
+Even if forwarding on the Mac works, Tesla will not show messages unless this is enabled.
+
+On Tesla screen:
+- `Bluetooth` / `Phone`
+- Select your iPhone
+- Ensure `Sync Messages` / `Show Messages` / `Text Messages` is enabled (label varies by firmware)
+
+On iPhone:
+- `Settings -> Bluetooth`
+- Tap `i` next to your Tesla connection
+- Ensure notifications/messages access is allowed (if shown)
+
+In iOS notifications:
+- `Settings -> Notifications -> Messages`
+- `Allow Notifications` ON
+- Lock screen/banner alerts ON (recommended)
+
 ## Install
 
 ```bash
