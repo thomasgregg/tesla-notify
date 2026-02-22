@@ -298,10 +298,6 @@ Must return PEM text (`BEGIN PUBLIC KEY` / `END PUBLIC KEY`).
   - Validate iPhone/Tesla Bluetooth message sharing
   - Test with a non-self iMessage recipient
 
-- **Menu icon missing**
-  - Restart menu agent:
-    - `launchctl kickstart -k gui/$(id -u)/com.tesla.notifier.menu`
-
 ## Security notes
 
 - `config.json` contains sensitive token(s)
