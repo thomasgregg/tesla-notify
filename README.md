@@ -71,7 +71,7 @@ In iOS notifications:
 ## Install
 
 ```bash
-cd /path/to/tesla-notify
+cd /path/to/tesla-notifier
 ./scripts/install.sh
 ```
 
@@ -121,7 +121,7 @@ All supported keys:
 
 | Key | Type | Default | Valid values / behavior |
 |---|---|---:|---|
-| `targetRecipient` | string | `+15555555555` | iMessage target (E.164 recommended, e.g. `+4917...`). Required for real forwarding. |
+| `targetRecipient` | string | `+15555555555` | iMessage target (E.164 recommended, e.g. `+15551234567`). Required for real forwarding. |
 | `messagePrefix` | string | `[WA->Tesla]` | Prepended to forwarded text. Set `\"\"` to disable prefix. |
 | `includeSenderInMessage` | bool | `true` | `true`: sends `Sender: message`. `false`: sends message body only. |
 | `forwardingGateMode` | string | `always` | Single string value (not list). Valid: `\"always\"`, `\"tesla_fleet\"`. Code also accepts `\"off\"` and `\"none\"` as aliases for `\"always\"`. |
@@ -136,6 +136,10 @@ All supported keys:
 | `pollIntervalSeconds` | int | `5` | Poll interval in seconds. Values below `2` are clamped to `2` to avoid overly aggressive DB polling and high CPU usage. |
 | `teslaFleetVehicleDataURL` | string(URL) | `\"\"` | Required for `tesla_fleet` mode. Format: `https://<fleet-host>/api/1/vehicles/<vehicle_id>/vehicle_data`. |
 | `teslaFleetBearerToken` | string | `\"\"` | Required for `tesla_fleet` mode. OAuth access token. |
+| `teslaFleetRefreshToken` | string | `\"\"` | Optional but recommended. If set with client credentials, daemon auto-refreshes access token on HTTP 401. |
+| `teslaOAuthClientID` | string | `\"\"` | Tesla OAuth `client_id` used for auto-refresh. |
+| `teslaOAuthClientSecret` | string | `\"\"` | Tesla OAuth `client_secret` used for auto-refresh. Keep private. |
+| `teslaOAuthTokenURL` | string(URL) | `https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token` | Token endpoint for refresh flow. |
 | `teslaFleetCacheSeconds` | int | `20` | Fleet gate cache TTL in seconds. Values below `1` are clamped to `1` so the cache logic remains valid and avoids request storms. |
 | `teslaFleetAllowWhenUserPresent` | bool | `true` | In fleet mode, forwarding is allowed only when `vehicle_state.is_user_present == true` and this flag is true. |
 
@@ -170,6 +174,10 @@ To only forward when you are likely in the car:
   "forwardingGateFailOpen": false,
   "teslaFleetVehicleDataURL": "https://<fleet-host>/api/1/vehicles/<vehicle_id>/vehicle_data",
   "teslaFleetBearerToken": "<access-token>",
+  "teslaFleetRefreshToken": "<refresh-token>",
+  "teslaOAuthClientID": "<client-id>",
+  "teslaOAuthClientSecret": "<client-secret>",
+  "teslaOAuthTokenURL": "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token",
   "teslaFleetCacheSeconds": 20,
   "teslaFleetAllowWhenUserPresent": true
 }
@@ -179,6 +187,7 @@ Gate behavior:
 - allow when `vehicle_state.is_user_present == true`
 - deny on API failure if `forwardingGateFailOpen=false`
 - allow on API failure if `forwardingGateFailOpen=true`
+- on HTTP 401, daemon auto-refreshes `teslaFleetBearerToken` if refresh credentials are configured
 
 ## Tesla token helper
 

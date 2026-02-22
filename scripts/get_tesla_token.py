@@ -557,6 +557,10 @@ def main() -> int:
     print('"forwardingGateMode": "tesla_fleet",')
     print('"forwardingGateFailOpen": false,')
     print('"teslaFleetBearerToken": "<paste access_token>",')
+    print('"teslaFleetRefreshToken": "<paste refresh_token>",')
+    print(f'"teslaOAuthClientID": "{args.client_id}",')
+    print('"teslaOAuthClientSecret": "<paste client_secret>",')
+    print(f'"teslaOAuthTokenURL": "https://{args.token_host}/oauth2/v3/token",')
 
     if args.fetch_vehicle_id or interactive:
         vid, fetch_err = fetch_vehicle_id(resolved_audience, access_token)
@@ -571,7 +575,11 @@ def main() -> int:
 
     refresh_token = user_token_resp.get("refresh_token")
     if refresh_token:
-        print("\nrefresh_token returned (store securely if you need token refresh).")
+        if show_full_token:
+            print("refresh_token:", refresh_token)
+        else:
+            print("refresh_token (masked):", mask_token(refresh_token))
+        print("Store refresh_token + client_id + client_secret in config.json to enable automatic token refresh in the daemon.")
 
     print("\nNotes:")
     print("- Redirect URI/port are still required in this script because OAuth must capture your callback code locally.")

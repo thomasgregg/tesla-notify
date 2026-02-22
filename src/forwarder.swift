@@ -18,6 +18,10 @@ struct Config: Codable {
     var pollIntervalSeconds: Int
     var teslaFleetVehicleDataURL: String
     var teslaFleetBearerToken: String
+    var teslaFleetRefreshToken: String
+    var teslaOAuthClientID: String
+    var teslaOAuthClientSecret: String
+    var teslaOAuthTokenURL: String
     var teslaFleetCacheSeconds: Int
     var teslaFleetAllowWhenUserPresent: Bool
 
@@ -39,6 +43,10 @@ struct Config: Codable {
             pollIntervalSeconds: 5,
             teslaFleetVehicleDataURL: "",
             teslaFleetBearerToken: "",
+            teslaFleetRefreshToken: "",
+            teslaOAuthClientID: "",
+            teslaOAuthClientSecret: "",
+            teslaOAuthTokenURL: "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token",
             teslaFleetCacheSeconds: 20,
             teslaFleetAllowWhenUserPresent: true
         )
@@ -103,11 +111,13 @@ final class InstanceLock {
 final class Forwarder {
     private var config: Config
     private var state: State
+    private let configPath: String
     private var gateCache: (allowed: Bool, ts: Int, reason: String)?
 
-    init(config: Config, state: State) {
+    init(config: Config, state: State, configPath: String) {
         self.config = config
         self.state = state
+        self.configPath = configPath
     }
 
     func start() {
@@ -224,37 +234,42 @@ final class Forwarder {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var statusCode = -1
-        var responseData: Data?
-        var requestError: Error?
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let http = response as? HTTPURLResponse {
-                statusCode = http.statusCode
-            }
-            responseData = data
-            requestError = error
-            semaphore.signal()
-        }.resume()
-        semaphore.wait()
-
-        if let err = requestError {
+        var response = performRequest(request)
+        if let err = response.error {
             let allowed = config.forwardingGateFailOpen
-            let reason = "tesla_fleet_request_error=\(err.localizedDescription) failOpen=\(config.forwardingGateFailOpen)"
+            let reason = "tesla_fleet_request_error=\(err) failOpen=\(config.forwardingGateFailOpen)"
             gateCache = (allowed, now, reason)
             return (allowed, reason)
         }
 
-        guard statusCode >= 200 && statusCode < 300 else {
+        if response.statusCode == 401 {
+            if let refreshError = refreshTeslaFleetAccessToken() {
+                let allowed = config.forwardingGateFailOpen
+                let reason = "tesla_fleet_http_status=401 refresh_error=\(refreshError) failOpen=\(config.forwardingGateFailOpen)"
+                gateCache = (allowed, now, reason)
+                return (allowed, reason)
+            }
+
+            var retryRequest = request
+            retryRequest.setValue("Bearer \(config.teslaFleetBearerToken)", forHTTPHeaderField: "Authorization")
+            response = performRequest(retryRequest)
+            if let err = response.error {
+                let allowed = config.forwardingGateFailOpen
+                let reason = "tesla_fleet_request_error_after_refresh=\(err) failOpen=\(config.forwardingGateFailOpen)"
+                gateCache = (allowed, now, reason)
+                return (allowed, reason)
+            }
+        }
+
+        guard response.statusCode >= 200 && response.statusCode < 300 else {
             let allowed = config.forwardingGateFailOpen
-            let reason = "tesla_fleet_http_status=\(statusCode) failOpen=\(config.forwardingGateFailOpen)"
+            let reason = "tesla_fleet_http_status=\(response.statusCode) failOpen=\(config.forwardingGateFailOpen)"
             gateCache = (allowed, now, reason)
             return (allowed, reason)
         }
 
         guard
-            let body = responseData,
+            let body = response.data,
             let rootAny = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
         else {
             let allowed = config.forwardingGateFailOpen
@@ -270,6 +285,98 @@ final class Forwarder {
         let reason = "tesla_fleet userPresent=\(userPresent)"
         gateCache = (allowed, now, reason)
         return (allowed, reason)
+    }
+
+    private func performRequest(_ request: URLRequest) -> (statusCode: Int, data: Data?, error: String?) {
+        let semaphore = DispatchSemaphore(value: 0)
+        var statusCode = -1
+        var responseData: Data?
+        var requestError: String?
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let http = response as? HTTPURLResponse {
+                statusCode = http.statusCode
+            }
+            responseData = data
+            if let error {
+                requestError = error.localizedDescription
+            }
+            semaphore.signal()
+        }.resume()
+        semaphore.wait()
+        return (statusCode, responseData, requestError)
+    }
+
+    private func fleetAudience(from vehicleDataURL: String) -> String? {
+        guard let url = URL(string: vehicleDataURL),
+              let scheme = url.scheme,
+              let host = url.host else {
+            return nil
+        }
+        return "\(scheme)://\(host)"
+    }
+
+    private func refreshTeslaFleetAccessToken() -> String? {
+        let refreshToken = config.teslaFleetRefreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clientID = config.teslaOAuthClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clientSecret = config.teslaOAuthClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tokenURLText = config.teslaOAuthTokenURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"
+            : config.teslaOAuthTokenURL.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if refreshToken.isEmpty || clientID.isEmpty || clientSecret.isEmpty {
+            return "missing_refresh_credentials"
+        }
+        guard let tokenURL = URL(string: tokenURLText) else {
+            return "bad_token_url"
+        }
+
+        var pairs: [(String, String)] = [
+            ("grant_type", "refresh_token"),
+            ("client_id", clientID),
+            ("client_secret", clientSecret),
+            ("refresh_token", refreshToken),
+        ]
+        if let audience = fleetAudience(from: config.teslaFleetVehicleDataURL) {
+            pairs.append(("audience", audience))
+        }
+        let form = pairs.map { key, value in
+            let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+            let encodedKey = key.addingPercentEncoding(withAllowedCharacters: allowed) ?? key
+            let encodedValue = value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+            return "\(encodedKey)=\(encodedValue)"
+        }.joined(separator: "&")
+
+        var request = URLRequest(url: tokenURL)
+        request.timeoutInterval = 15
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = Data(form.utf8)
+
+        let response = performRequest(request)
+        guard response.error == nil else {
+            return "refresh_request_error"
+        }
+        guard response.statusCode >= 200 && response.statusCode < 300 else {
+            return "refresh_http_status=\(response.statusCode)"
+        }
+        guard let data = response.data,
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let newAccessToken = root["access_token"] as? String,
+              !newAccessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "refresh_bad_response"
+        }
+
+        config.teslaFleetBearerToken = newAccessToken
+        if let newRefreshToken = root["refresh_token"] as? String,
+           !newRefreshToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            config.teslaFleetRefreshToken = newRefreshToken
+        }
+        saveConfig()
+        log("INFO tesla_fleet_token_refreshed")
+        gateCache = nil
+        return nil
     }
 
     private func boolAtPath(_ root: [String: Any], path: [String]) -> Bool? {
@@ -524,6 +631,20 @@ final class Forwarder {
         }
     }
 
+    private func saveConfig() {
+        let url = URL(fileURLWithPath: configPath)
+        do {
+            let directory = url.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(config)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            log("ERROR saveConfig failed err=\(error.localizedDescription)")
+        }
+    }
+
     private func log(_ message: String) {
         let ts = ISO8601DateFormatter().string(from: Date())
         let line = "\(ts) \(message)\n"
@@ -547,11 +668,9 @@ final class Forwarder {
     }
 }
 
-func loadConfig(path: String?) -> Config {
+func loadConfig(path: String) -> Config {
     let home = FileManager.default.homeDirectoryForCurrentUser.path
     var cfg = Config.default(home: home)
-    guard let path else { return cfg }
-
     let url = URL(fileURLWithPath: path)
     guard let data = try? Data(contentsOf: url) else {
         return cfg
@@ -576,6 +695,10 @@ func loadConfig(path: String?) -> Config {
     if let v = raw["pollIntervalSeconds"] as? Int { cfg.pollIntervalSeconds = v }
     if let v = raw["teslaFleetVehicleDataURL"] as? String { cfg.teslaFleetVehicleDataURL = v }
     if let v = raw["teslaFleetBearerToken"] as? String { cfg.teslaFleetBearerToken = v }
+    if let v = raw["teslaFleetRefreshToken"] as? String { cfg.teslaFleetRefreshToken = v }
+    if let v = raw["teslaOAuthClientID"] as? String { cfg.teslaOAuthClientID = v }
+    if let v = raw["teslaOAuthClientSecret"] as? String { cfg.teslaOAuthClientSecret = v }
+    if let v = raw["teslaOAuthTokenURL"] as? String { cfg.teslaOAuthTokenURL = v }
     if let v = raw["teslaFleetCacheSeconds"] as? Int { cfg.teslaFleetCacheSeconds = v }
     if let v = raw["teslaFleetAllowWhenUserPresent"] as? Bool { cfg.teslaFleetAllowWhenUserPresent = v }
 
@@ -590,7 +713,8 @@ func loadState(path: String) -> State {
     return (try? JSONDecoder().decode(State.self, from: data)) ?? .empty
 }
 
-let configPath = CommandLine.arguments.dropFirst().first
+let providedConfigPath = CommandLine.arguments.dropFirst().first
+let resolvedConfigPath = providedConfigPath ?? (NSHomeDirectory() + "/Library/Application Support/TeslaNotifier/config.json")
 let lockPath = NSHomeDirectory() + "/Library/Application Support/TeslaNotifier/forwarder.lock"
 let instanceLock = InstanceLock()
 if !instanceLock.acquire(lockPath: lockPath) {
@@ -598,7 +722,7 @@ if !instanceLock.acquire(lockPath: lockPath) {
     exit(0)
 }
 
-let config = loadConfig(path: configPath)
+let config = loadConfig(path: resolvedConfigPath)
 let state = loadState(path: config.statePath)
-let app = Forwarder(config: config, state: state)
+let app = Forwarder(config: config, state: state, configPath: resolvedConfigPath)
 app.start()

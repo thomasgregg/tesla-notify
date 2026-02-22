@@ -6,8 +6,9 @@ APP_SUPPORT_DIR="$HOME/Library/Application Support/TeslaNotifier"
 APP_INSTALL_DIR="${APP_INSTALL_DIR:-/Applications}"
 APP_BUNDLE_NAME="tesla-notifier-forwarder.app"
 APP_BUNDLE="$APP_INSTALL_DIR/$APP_BUNDLE_NAME"
-STAGING_ROOT="$APP_SUPPORT_DIR/.build"
+STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/tesla-notifier-build.XXXXXX")"
 STAGING_BUNDLE="$STAGING_ROOT/$APP_BUNDLE_NAME"
+LEGACY_BUILD_ROOT="$APP_SUPPORT_DIR/.build"
 LEGACY_APP_BUNDLE_APP_SUPPORT="$APP_SUPPORT_DIR/$APP_BUNDLE_NAME"
 LEGACY_APP_BUNDLE_OLD_NAME="$APP_SUPPORT_DIR/TeslaNotifierForwarder.app"
 
@@ -24,9 +25,7 @@ PLIST_PATH="$LAUNCH_AGENTS_DIR/com.tesla.notifier.forwarder.plist"
 MENU_PLIST_PATH="$LAUNCH_AGENTS_DIR/com.tesla.notifier.menu.plist"
 
 FORWARDER_SRC="$REPO_DIR/src/forwarder.swift"
-FORWARDER_DST="$APP_SUPPORT_DIR/forwarder.swift"
 MENU_APP_SRC="$REPO_DIR/src/menu_app.swift"
-MENU_APP_DST="$APP_SUPPORT_DIR/menu_app.swift"
 VERIFY_SCRIPT_SRC="$REPO_DIR/scripts/verify_tesla_setup.sh"
 VERIFY_SCRIPT_DST="$APP_SUPPORT_DIR/verify_tesla_setup.sh"
 
@@ -40,8 +39,24 @@ LOG_PATH="$APP_SUPPORT_DIR/forwarder.log"
 ERR_PATH="$APP_SUPPORT_DIR/forwarder.err.log"
 STATE_PATH="$APP_SUPPORT_DIR/state.json"
 
+cleanup() {
+  rm -rf "$STAGING_ROOT"
+}
+trap cleanup EXIT
+
 mkdir -p "$APP_SUPPORT_DIR" "$APP_INSTALL_DIR" "$LAUNCH_AGENTS_DIR"
 mkdir -p "$APP_MACOS_DIR" "$APP_RESOURCES_DIR"
+
+if [[ -d "$LEGACY_BUILD_ROOT" ]]; then
+  rm -rf "$LEGACY_BUILD_ROOT" 2>/dev/null || true
+  if [[ -d "$LEGACY_BUILD_ROOT" ]] && command -v sudo >/dev/null 2>&1; then
+    sudo -n rm -rf "$LEGACY_BUILD_ROOT" 2>/dev/null || true
+  fi
+  if [[ -d "$LEGACY_BUILD_ROOT" ]]; then
+    echo "Warning: could not fully remove legacy build cache at $LEGACY_BUILD_ROOT"
+    echo "Run once to clean old root-owned cache: sudo rm -rf \"$LEGACY_BUILD_ROOT\""
+  fi
+fi
 
 if [[ -d "$LEGACY_APP_BUNDLE_APP_SUPPORT" ]]; then
   rm -rf "$LEGACY_APP_BUNDLE_APP_SUPPORT"
@@ -50,13 +65,11 @@ if [[ -d "$LEGACY_APP_BUNDLE_OLD_NAME" ]]; then
   rm -rf "$LEGACY_APP_BUNDLE_OLD_NAME"
 fi
 
-cp "$FORWARDER_SRC" "$FORWARDER_DST"
-cp "$MENU_APP_SRC" "$MENU_APP_DST"
 cp "$VERIFY_SCRIPT_SRC" "$VERIFY_SCRIPT_DST"
 chmod +x "$VERIFY_SCRIPT_DST"
 
-/usr/bin/swiftc -O "$FORWARDER_DST" -o "$DAEMON_EXEC"
-/usr/bin/swiftc -O -framework AppKit "$MENU_APP_DST" -o "$MENU_EXEC"
+/usr/bin/swiftc -O "$FORWARDER_SRC" -o "$DAEMON_EXEC"
+/usr/bin/swiftc -O -framework AppKit "$MENU_APP_SRC" -o "$MENU_EXEC"
 
 if [[ -f "$ICON_SOURCE_SVG" ]]; then
   sips -z 1024 1024 -s format png "$ICON_SOURCE_SVG" --out "$ICON_RENDERED_PNG" >/dev/null 2>&1 || true
@@ -140,6 +153,10 @@ if [[ ! -f "$CONFIG_PATH" ]]; then
   "pollIntervalSeconds": 5,
   "teslaFleetVehicleDataURL": "",
   "teslaFleetBearerToken": "",
+  "teslaFleetRefreshToken": "",
+  "teslaOAuthClientID": "",
+  "teslaOAuthClientSecret": "",
+  "teslaOAuthTokenURL": "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token",
   "teslaFleetCacheSeconds": 20,
   "teslaFleetAllowWhenUserPresent": true
 }

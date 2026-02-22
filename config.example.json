@@ -11,6 +11,10 @@
   "pollIntervalSeconds": 5,
   "teslaFleetVehicleDataURL": "",
   "teslaFleetBearerToken": "",
+  "teslaFleetRefreshToken": "",
+  "teslaOAuthClientID": "",
+  "teslaOAuthClientSecret": "",
+  "teslaOAuthTokenURL": "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token",
   "teslaFleetCacheSeconds": 20,
   "teslaFleetAllowWhenUserPresent": true
 }

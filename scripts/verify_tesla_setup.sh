@@ -80,6 +80,9 @@ GATE_MODE="$(cfg_get forwardingGateMode)"
 FAIL_OPEN="$(cfg_get forwardingGateFailOpen)"
 FLEET_URL="$(cfg_get teslaFleetVehicleDataURL)"
 FLEET_TOKEN="$(cfg_get teslaFleetBearerToken)"
+FLEET_REFRESH_TOKEN="$(cfg_get teslaFleetRefreshToken)"
+TESLA_CLIENT_ID="$(cfg_get teslaOAuthClientID)"
+TESLA_CLIENT_SECRET="$(cfg_get teslaOAuthClientSecret)"
 
 if [[ -n "$TARGET_RECIPIENT" && "$TARGET_RECIPIENT" != "+15555555555" && "$TARGET_RECIPIENT" != "+1YOUR_NUMBER" ]]; then
   pass "targetRecipient configured: $TARGET_RECIPIENT"
@@ -118,6 +121,12 @@ if [[ "$GATE_MODE_LOWER" == "tesla_fleet" ]]; then
     pass "teslaFleetBearerToken format looks valid (JWT with 3 parts)."
   else
     fail "teslaFleetBearerToken format is invalid."
+  fi
+
+  if [[ -n "$FLEET_REFRESH_TOKEN" && -n "$TESLA_CLIENT_ID" && -n "$TESLA_CLIENT_SECRET" ]]; then
+    pass "auto-refresh credentials are configured."
+  else
+    warn "auto-refresh credentials missing; token expiry will require manual update."
   fi
 
   if [[ -n "$FLEET_URL" && "$TOKEN_PARTS" == "3" ]] && have_cmd curl; then
@@ -177,4 +186,3 @@ if [[ "$FAIL_COUNT" -gt 0 ]]; then
   exit 1
 fi
 exit 0
-
