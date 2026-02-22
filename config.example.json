@@ -1,0 +1,16 @@
+{
+  "targetRecipient": "+15555555555",
+  "messagePrefix": "[WA->Tesla]",
+  "includeSenderInMessage": true,
+  "forwardingGateMode": "always",
+  "forwardingGateFailOpen": true,
+  "senderAllowlist": [],
+  "dedupeWindowSeconds": 90,
+  "maxMessageLength": 500,
+  "debugNotificationDump": false,
+  "pollIntervalSeconds": 5,
+  "teslaFleetVehicleDataURL": "",
+  "teslaFleetBearerToken": "",
+  "teslaFleetCacheSeconds": 20,
+  "teslaFleetAllowWhenUserPresent": true
+}
