@@ -1,9 +1,9 @@
 # Tesla Notify
 
-A macOS menu bar app + background daemon to overcome a Tesla limitation: there is no native WhatsApp app in Tesla.
-It forwards inbound WhatsApp Desktop messages to iMessage so they can appear in Tesla via your paired iPhone.
+A macOS menu bar app + background daemon to overcome a Tesla limitation: there is no native WhatsApp app in Tesla, which makes it harder (and less safe) to stay up to date while driving.
+It forwards inbound WhatsApp Desktop messages to iMessage so they can appear in your Tesla via your paired iPhone.
 
-Optional: Tesla Fleet API integration can check whether someone is in the car. If enabled, messages are forwarded only when the car reports a user is present.
+Optional: Tesla Fleet API integration can check whether someone is in the car. If enabled, messages are forwarded only when the car reports a user is present, so you are not bothered by messages when you are not in the car.
 
 ## Why this exists
 
