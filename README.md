@@ -82,22 +82,22 @@ Installer behavior:
 - Creates/updates LaunchAgents
 - Preserves existing `config.json`
 - Signs app (`Developer ID` if available, otherwise ad-hoc)
+- Does not prompt for phone number during install (uses existing `targetRecipient` or placeholder)
 
-## First-time setup
+## First-time setup (UI workflow)
 
-1. Open config:
-
-```bash
-open ~/Library/Application\ Support/TeslaNotifier/config.json
-```
-
-2. Set your iMessage recipient:
+1. Click the Tesla icon in the macOS menu bar.
+2. Click `Open Config`.
+3. Set your iMessage recipient in `config.json`:
 
 ```json
 "targetRecipient": "+1YOUR_NUMBER"
 ```
 
-3. Restart daemon:
+4. Save `config.json`.
+5. In the menu app, click `↻ Restart Forwarder`.
+
+Terminal alternative (optional):
 
 ```bash
 launchctl kickstart -k gui/$(id -u)/com.tesla.notifier.forwarder
