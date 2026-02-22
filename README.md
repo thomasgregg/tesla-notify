@@ -2,6 +2,8 @@
 
 A macOS menu bar app + background daemon that forwards inbound WhatsApp Desktop messages to iMessage, so they can appear in Tesla via your paired iPhone.
 
+It also supports an **optional Tesla Fleet API gate**: only forward messages when `vehicle_state.is_user_present == true` (for example, when someone is in the car). This gate is configurable and can be enabled/disabled in `config.json`.
+
 ## Why this exists
 
 Tesla does not natively integrate with WhatsApp. This project bridges the gap on macOS by:
@@ -43,6 +45,8 @@ Tesla does not natively integrate with WhatsApp. This project bridges the gap on
 - Messages app logged into iMessage
 - iPhone paired to Tesla with message sharing enabled
 - Xcode Command Line Tools (`swiftc`, `swift`)
+- Public HTTPS hosting for Tesla public key PEM (`/.well-known/appspecific/com.tesla.3p.public-key.pem`)
+- Cloudflare Pages recommended for PEM hosting (see section below)
 
 ## Tesla/iPhone Message Sharing (Required)
 
