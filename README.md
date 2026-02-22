@@ -1,8 +1,9 @@
 # Tesla Notify
 
-A macOS menu bar app + background daemon that forwards inbound WhatsApp Desktop messages to iMessage, so they can appear in Tesla via your paired iPhone.
+A macOS menu bar app + background daemon to overcome a Tesla limitation: there is no native WhatsApp app in Tesla.
+It forwards inbound WhatsApp Desktop messages to iMessage so they can appear in Tesla via your paired iPhone.
 
-It also supports an **optional Tesla Fleet API gate**: only forward messages when `vehicle_state.is_user_present == true` (for example, when someone is in the car). This gate is configurable and can be enabled/disabled in `config.json`.
+Optional: Tesla Fleet API integration can check whether someone is in the car. If enabled, messages are forwarded only when the car reports a user is present.
 
 ## Why this exists
 
