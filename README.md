@@ -5,7 +5,7 @@ It forwards inbound WhatsApp Desktop messages to iMessage so they can appear in 
 
 Optional: Tesla Fleet API integration can check whether someone is in the car. If enabled, messages are forwarded only when the car reports a user is present, so you are not bothered by messages when you are not in the car.
 
-## Why this exists
+## How It Works
 
 Tesla does not natively integrate with WhatsApp. This project bridges the gap on macOS by:
 - Reading new inbound messages from WhatsApp's local Mac database
