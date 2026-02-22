@@ -112,6 +112,38 @@ launchctl kickstart -k gui/$(id -u)/com.tesla.notifier.forwarder
 - `Live Logs`
 - `Quit Menu App` (quits UI only; daemon keeps running unless stopped)
 
+## Config File Reference
+
+Config file path:
+- `~/Library/Application Support/TeslaNotifier/config.json`
+
+All supported keys:
+
+| Key | Type | Default | Valid values / behavior |
+|---|---|---:|---|
+| `targetRecipient` | string | `+15555555555` | iMessage target (E.164 recommended, e.g. `+4917...`). Required for real forwarding. |
+| `messagePrefix` | string | `[WA->Tesla]` | Prepended to forwarded text. Set `\"\"` to disable prefix. |
+| `includeSenderInMessage` | bool | `true` | `true`: sends `Sender: message`. `false`: sends message body only. |
+| `forwardingGateMode` | string | `always` | Recommended: `always`, `tesla_fleet`. Also accepted by code: `off`, `none` (same as always). |
+| `forwardingGateFailOpen` | bool | `true` | Only relevant in `tesla_fleet` mode. `true`: forward on API errors/timeouts. `false`: block on API errors/timeouts. |
+| `senderAllowlist` | array[string] | `[]` | Empty = allow all senders. Non-empty = only listed sender names are forwarded. |
+| `dedupeWindowSeconds` | int | `90` | Duplicate suppression window for same sender+message text. |
+| `maxMessageLength` | int | `500` | Truncates long forwarded messages and appends `...`. |
+| `logPath` | string(path) | generated | Log file path. Usually `~/Library/Application Support/TeslaNotifier/forwarder.log`. |
+| `statePath` | string(path) | generated | State file path (dedupe/history/last seen). |
+| `debugNotificationDump` | bool | `false` | Enables additional fetch/poll debug logging. |
+| `whatsappDBPath` | string(path) | generated | WhatsApp DB path (`ChatStorage.sqlite`). |
+| `pollIntervalSeconds` | int | `5` | Poll interval; code enforces minimum effective value of `2` seconds. |
+| `teslaFleetVehicleDataURL` | string(URL) | `\"\"` | Required for `tesla_fleet` mode. Format: `https://<fleet-host>/api/1/vehicles/<vehicle_id>/vehicle_data`. |
+| `teslaFleetBearerToken` | string | `\"\"` | Required for `tesla_fleet` mode. OAuth access token. |
+| `teslaFleetCacheSeconds` | int | `20` | Fleet gate cache TTL; code enforces minimum effective value of `1` second. |
+| `teslaFleetAllowWhenUserPresent` | bool | `true` | In fleet mode, forwarding is allowed only when `vehicle_state.is_user_present == true` and this flag is true. |
+
+Notes:
+- `scripts/install.sh` creates a working config template on first install.
+- Existing `config.json` is preserved on reinstall.
+- `config.example.json` intentionally omits path fields (`logPath`, `statePath`, `whatsappDBPath`) to avoid broken `~` handling in JSON.
+
 ## Verify setup
 
 Run from terminal:
