@@ -126,7 +126,7 @@ All supported keys:
 | `includeSenderInMessage` | bool | `true` | `true`: sends `Sender: message`. `false`: sends message body only. |
 | `forwardingGateMode` | string | `always` | Single string value (not list). Valid: `\"always\"`, `\"tesla_fleet\"`. Code also accepts `\"off\"` and `\"none\"` as aliases for `\"always\"`. |
 | `forwardingGateFailOpen` | bool | `true` | Only relevant in `tesla_fleet` mode. `true`: forward on API errors/timeouts. `false`: block on API errors/timeouts. |
-| `senderAllowlist` | array[string] | `[]` | JSON array of sender names, e.g. `[\"Eloisa Gregg\", \"Nicolas GOLF\"]`. Empty array `[]` = allow all senders. Non-empty = only exact listed names are forwarded. |
+| `senderAllowlist` | array[string] | `[]` | JSON array of sender names, e.g. `[\"Alice Example\", \"Bob Example\"]`. Empty array `[]` = allow all senders. Non-empty = only exact listed names are forwarded. |
 | `dedupeWindowSeconds` | int | `90` | Duplicate suppression window for same sender+message text. |
 | `maxMessageLength` | int | `500` | Truncates long forwarded messages and appends `...`. |
 | `logPath` | string(path) | generated | Log file path. Usually `~/Library/Application Support/TeslaNotifier/forwarder.log`. |
