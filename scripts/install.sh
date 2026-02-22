@@ -38,6 +38,7 @@ CONFIG_PATH="$APP_SUPPORT_DIR/config.json"
 LOG_PATH="$APP_SUPPORT_DIR/forwarder.log"
 ERR_PATH="$APP_SUPPORT_DIR/forwarder.err.log"
 STATE_PATH="$APP_SUPPORT_DIR/state.json"
+DEFAULT_TARGET_RECIPIENT="+15555555555"
 
 cleanup() {
   rm -rf "$STAGING_ROOT"
@@ -135,10 +136,17 @@ else
   codesign --force --deep --sign - "$STAGING_BUNDLE"
 fi
 
+TARGET_RECIPIENT_DEFAULT="$DEFAULT_TARGET_RECIPIENT"
+if [[ -t 0 && ! -f "$CONFIG_PATH" ]]; then
+  read -r -p "Target recipient for iMessage forwarding (E.164, e.g. +15551234567) [$DEFAULT_TARGET_RECIPIENT]: " TARGET_RECIPIENT_INPUT || true
+  TARGET_RECIPIENT_INPUT="${TARGET_RECIPIENT_INPUT:-$DEFAULT_TARGET_RECIPIENT}"
+  TARGET_RECIPIENT_DEFAULT="$TARGET_RECIPIENT_INPUT"
+fi
+
 if [[ ! -f "$CONFIG_PATH" ]]; then
   cat > "$CONFIG_PATH" <<EOF
 {
-  "targetRecipient": "+15555555555",
+  "targetRecipient": "$TARGET_RECIPIENT_DEFAULT",
   "messagePrefix": "[WA->Tesla]",
   "includeSenderInMessage": true,
   "forwardingGateMode": "always",
@@ -165,6 +173,56 @@ EOF
 else
   echo "Config already exists at $CONFIG_PATH"
 fi
+
+/usr/bin/python3 - <<PY "$CONFIG_PATH" "$LOG_PATH" "$STATE_PATH" "$HOME/Library/Group Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite"
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+log_path = sys.argv[2]
+state_path = sys.argv[3]
+wa_db_path = sys.argv[4]
+
+defaults = {
+    "targetRecipient": "+15555555555",
+    "messagePrefix": "[WA->Tesla]",
+    "includeSenderInMessage": True,
+    "forwardingGateMode": "always",
+    "forwardingGateFailOpen": True,
+    "senderAllowlist": [],
+    "dedupeWindowSeconds": 90,
+    "maxMessageLength": 500,
+    "logPath": log_path,
+    "statePath": state_path,
+    "debugNotificationDump": False,
+    "whatsappDBPath": wa_db_path,
+    "pollIntervalSeconds": 5,
+    "teslaFleetVehicleDataURL": "",
+    "teslaFleetBearerToken": "",
+    "teslaFleetRefreshToken": "",
+    "teslaOAuthClientID": "",
+    "teslaOAuthClientSecret": "",
+    "teslaOAuthTokenURL": "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token",
+    "teslaFleetCacheSeconds": 20,
+    "teslaFleetAllowWhenUserPresent": True,
+}
+
+try:
+    cfg = json.loads(config_path.read_text(encoding="utf-8"))
+except Exception:
+    cfg = {}
+
+changed = False
+for key, value in defaults.items():
+    if key not in cfg:
+        cfg[key] = value
+        changed = True
+
+if changed:
+    config_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+    print(f"Updated config with missing defaults: {config_path}")
+PY
 
 if [[ -d "$APP_BUNDLE" ]]; then
   rm -rf "$APP_BUNDLE"
