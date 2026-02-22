@@ -124,19 +124,19 @@ All supported keys:
 | `targetRecipient` | string | `+15555555555` | iMessage target (E.164 recommended, e.g. `+4917...`). Required for real forwarding. |
 | `messagePrefix` | string | `[WA->Tesla]` | Prepended to forwarded text. Set `\"\"` to disable prefix. |
 | `includeSenderInMessage` | bool | `true` | `true`: sends `Sender: message`. `false`: sends message body only. |
-| `forwardingGateMode` | string | `always` | Recommended: `always`, `tesla_fleet`. Also accepted by code: `off`, `none` (same as always). |
+| `forwardingGateMode` | string | `always` | Single string value (not list). Valid: `\"always\"`, `\"tesla_fleet\"`. Code also accepts `\"off\"` and `\"none\"` as aliases for `\"always\"`. |
 | `forwardingGateFailOpen` | bool | `true` | Only relevant in `tesla_fleet` mode. `true`: forward on API errors/timeouts. `false`: block on API errors/timeouts. |
-| `senderAllowlist` | array[string] | `[]` | Empty = allow all senders. Non-empty = only listed sender names are forwarded. |
+| `senderAllowlist` | array[string] | `[]` | JSON array of sender names, e.g. `[\"Eloisa Gregg\", \"Nicolas GOLF\"]`. Empty array `[]` = allow all senders. Non-empty = only exact listed names are forwarded. |
 | `dedupeWindowSeconds` | int | `90` | Duplicate suppression window for same sender+message text. |
 | `maxMessageLength` | int | `500` | Truncates long forwarded messages and appends `...`. |
 | `logPath` | string(path) | generated | Log file path. Usually `~/Library/Application Support/TeslaNotifier/forwarder.log`. |
 | `statePath` | string(path) | generated | State file path (dedupe/history/last seen). |
 | `debugNotificationDump` | bool | `false` | Enables additional fetch/poll debug logging. |
 | `whatsappDBPath` | string(path) | generated | WhatsApp DB path (`ChatStorage.sqlite`). |
-| `pollIntervalSeconds` | int | `5` | Poll interval; code enforces minimum effective value of `2` seconds. |
+| `pollIntervalSeconds` | int | `5` | Poll interval in seconds. Values below `2` are clamped to `2` to avoid overly aggressive DB polling and high CPU usage. |
 | `teslaFleetVehicleDataURL` | string(URL) | `\"\"` | Required for `tesla_fleet` mode. Format: `https://<fleet-host>/api/1/vehicles/<vehicle_id>/vehicle_data`. |
 | `teslaFleetBearerToken` | string | `\"\"` | Required for `tesla_fleet` mode. OAuth access token. |
-| `teslaFleetCacheSeconds` | int | `20` | Fleet gate cache TTL; code enforces minimum effective value of `1` second. |
+| `teslaFleetCacheSeconds` | int | `20` | Fleet gate cache TTL in seconds. Values below `1` are clamped to `1` so the cache logic remains valid and avoids request storms. |
 | `teslaFleetAllowWhenUserPresent` | bool | `true` | In fleet mode, forwarding is allowed only when `vehicle_state.is_user_present == true` and this flag is true. |
 
 Notes:
