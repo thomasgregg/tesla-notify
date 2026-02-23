@@ -83,6 +83,104 @@ FLEET_TOKEN="$(cfg_get teslaFleetBearerToken)"
 FLEET_REFRESH_TOKEN="$(cfg_get teslaFleetRefreshToken)"
 TESLA_CLIENT_ID="$(cfg_get teslaOAuthClientID)"
 TESLA_CLIENT_SECRET="$(cfg_get teslaOAuthClientSecret)"
+TESLA_TOKEN_URL="$(cfg_get teslaOAuthTokenURL)"
+
+reload_cfg() {
+  CFG_JSON="$(python3 - <<'PY' "$CONFIG_PATH"
+import json, sys
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as f:
+    cfg = json.load(f)
+print(json.dumps(cfg))
+PY
+)"
+}
+
+refresh_fleet_token() {
+  python3 - <<'PY' "$CONFIG_PATH" "$FLEET_URL"
+import json
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+fleet_url = sys.argv[2]
+
+try:
+    cfg = json.loads(config_path.read_text(encoding="utf-8"))
+except Exception:
+    print("ERR config_read")
+    raise SystemExit(0)
+
+refresh_token = (cfg.get("teslaFleetRefreshToken") or "").strip()
+client_id = (cfg.get("teslaOAuthClientID") or "").strip()
+client_secret = (cfg.get("teslaOAuthClientSecret") or "").strip()
+token_url = (cfg.get("teslaOAuthTokenURL") or "").strip() or "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"
+
+if not refresh_token or not client_id or not client_secret:
+    print("ERR missing_refresh_credentials")
+    raise SystemExit(0)
+
+audience = ""
+try:
+    p = urllib.parse.urlparse(fleet_url)
+    if p.scheme and p.netloc:
+        audience = f"{p.scheme}://{p.netloc}"
+except Exception:
+    pass
+
+payload = {
+    "grant_type": "refresh_token",
+    "client_id": client_id,
+    "client_secret": client_secret,
+    "refresh_token": refresh_token,
+}
+if audience:
+    payload["audience"] = audience
+
+body = urllib.parse.urlencode(payload).encode("utf-8")
+req = urllib.request.Request(
+    token_url,
+    method="POST",
+    headers={
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+    },
+    data=body,
+)
+
+try:
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        raw = resp.read().decode("utf-8", errors="replace")
+except urllib.error.HTTPError as e:
+    print(f"ERR refresh_http_status={e.code}")
+    raise SystemExit(0)
+except Exception:
+    print("ERR refresh_request_error")
+    raise SystemExit(0)
+
+try:
+    data = json.loads(raw or "{}")
+except Exception:
+    print("ERR refresh_bad_response")
+    raise SystemExit(0)
+
+access_token = (data.get("access_token") or "").strip()
+if not access_token:
+    print("ERR refresh_bad_response")
+    raise SystemExit(0)
+
+cfg["teslaFleetBearerToken"] = access_token
+new_refresh = (data.get("refresh_token") or "").strip()
+if new_refresh:
+    cfg["teslaFleetRefreshToken"] = new_refresh
+
+config_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+print("OK")
+PY
+}
 
 if [[ -n "$TARGET_RECIPIENT" && "$TARGET_RECIPIENT" != "+15555555555" && "$TARGET_RECIPIENT" != "+1YOUR_NUMBER" ]]; then
   pass "targetRecipient configured: $TARGET_RECIPIENT"
@@ -137,6 +235,25 @@ if [[ "$GATE_MODE_LOWER" == "tesla_fleet" ]]; then
       "$FLEET_URL" || true)"
     BODY="$(cat "$RESP_FILE" 2>/dev/null || true)"
     rm -f "$RESP_FILE"
+
+    if [[ "$HTTP_CODE" == "401" ]]; then
+      REFRESH_RESULT="$(refresh_fleet_token)"
+      if [[ "$REFRESH_RESULT" == "OK" ]]; then
+        pass "Refreshed Fleet access token via refresh token."
+        reload_cfg
+        FLEET_TOKEN="$(cfg_get teslaFleetBearerToken)"
+        RESP_FILE="$(mktemp)"
+        HTTP_CODE="$(curl -sS -m "$TIMEOUT_SECONDS" -o "$RESP_FILE" -w '%{http_code}' \
+          -H "Authorization: Bearer $FLEET_TOKEN" \
+          -H "Accept: application/json" \
+          "$FLEET_URL" || true)"
+        BODY="$(cat "$RESP_FILE" 2>/dev/null || true)"
+        rm -f "$RESP_FILE"
+      else
+        fail "Fleet API HTTP 401 and refresh failed (${REFRESH_RESULT#ERR })."
+        HTTP_CODE=""
+      fi
+    fi
 
     if [[ "$HTTP_CODE" == "200" ]]; then
       USER_PRESENT="$(python3 - <<'PY' "$BODY"
