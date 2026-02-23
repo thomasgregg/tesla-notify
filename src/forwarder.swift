@@ -113,6 +113,7 @@ final class Forwarder {
     private var state: State
     private let configPath: String
     private var gateCache: (allowed: Bool, ts: Int, reason: String)?
+    private let proactiveRefreshLeadSeconds = 600
 
     init(config: Config, state: State, configPath: String) {
         self.config = config
@@ -139,6 +140,7 @@ final class Forwarder {
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             self?.pruneRecent(now: Int(Date().timeIntervalSince1970))
             self?.saveState()
+            self?.proactiveRefreshIfNeeded()
         }
 
         RunLoop.main.run()
@@ -228,6 +230,8 @@ final class Forwarder {
             return (allowed, reason)
         }
 
+        proactiveRefreshIfNeeded()
+
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
         request.httpMethod = "GET"
@@ -285,6 +289,44 @@ final class Forwarder {
         let reason = "tesla_fleet userPresent=\(userPresent)"
         gateCache = (allowed, now, reason)
         return (allowed, reason)
+    }
+
+    private func proactiveRefreshIfNeeded() {
+        let mode = config.forwardingGateMode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if mode != "tesla_fleet" { return }
+
+        let token = config.teslaFleetBearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { return }
+        guard let exp = jwtExpiryEpoch(token), exp > 0 else { return }
+
+        let now = Int(Date().timeIntervalSince1970)
+        if exp - now > proactiveRefreshLeadSeconds { return }
+
+        if let error = refreshTeslaFleetAccessToken() {
+            log("WARN proactive_refresh_failed reason=\(sanitizeLogValue(error))")
+        } else {
+            log("INFO proactive_refresh_success")
+        }
+    }
+
+    private func jwtExpiryEpoch(_ token: String) -> Int? {
+        let parts = token.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3 else { return nil }
+        var payload = String(parts[1])
+        payload = payload.replacingOccurrences(of: "-", with: "+")
+        payload = payload.replacingOccurrences(of: "_", with: "/")
+        let rem = payload.count % 4
+        if rem != 0 {
+            payload += String(repeating: "=", count: 4 - rem)
+        }
+        guard let data = Data(base64Encoded: payload, options: [.ignoreUnknownCharacters]),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        if let exp = root["exp"] as? Int { return exp }
+        if let exp = root["exp"] as? NSNumber { return exp.intValue }
+        if let expStr = root["exp"] as? String, let exp = Int(expStr) { return exp }
+        return nil
     }
 
     private func performRequest(_ request: URLRequest) -> (statusCode: Int, data: Data?, error: String?) {

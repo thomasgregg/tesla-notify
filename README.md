@@ -188,6 +188,7 @@ Gate behavior:
 - allow when `vehicle_state.is_user_present == true`
 - deny on API failure if `forwardingGateFailOpen=false`
 - allow on API failure if `forwardingGateFailOpen=true`
+- daemon proactively refreshes token shortly before expiry (and also refreshes on HTTP 401)
 - on HTTP 401, daemon auto-refreshes `teslaFleetBearerToken` if refresh credentials are configured
 
 ## Tesla token helper
