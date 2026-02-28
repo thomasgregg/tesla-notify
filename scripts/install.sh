@@ -112,9 +112,9 @@ cat > "$APP_PLIST" <<EOF
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.2.0</string>
+  <string>1.2.1</string>
   <key>CFBundleVersion</key>
-  <string>120</string>
+  <string>121</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
   <key>LSUIElement</key>
