@@ -18,6 +18,16 @@ MENU_PLIST_PATH="$LAUNCH_AGENTS_DIR/com.tesla.notifier.menu.plist"
 
 launchctl bootout "gui/$(id -u)" "$PLIST_PATH" 2>/dev/null || true
 launchctl bootout "gui/$(id -u)" "$MENU_PLIST_PATH" 2>/dev/null || true
+launchctl bootout "gui/$(id -u)/com.tesla.notifier.forwarder" 2>/dev/null || true
+launchctl bootout "gui/$(id -u)/com.tesla.notifier.menu" 2>/dev/null || true
+launchctl remove "com.tesla.notifier.forwarder" 2>/dev/null || true
+launchctl remove "com.tesla.notifier.menu" 2>/dev/null || true
+
+# Kill any lingering binaries (e.g., if manually launched outside launchd).
+pkill -f '/Applications/tesla-notifier-forwarder.app/Contents/Resources/forwarder-daemon' 2>/dev/null || true
+pkill -f '/Applications/tesla-notifier-forwarder.app/Contents/MacOS/tesla-notifier-forwarder' 2>/dev/null || true
+pkill -f 'tesla-notifier-forwarder.app/Contents/Resources/forwarder-daemon' 2>/dev/null || true
+pkill -f 'tesla-notifier-forwarder.app/Contents/MacOS/tesla-notifier-forwarder' 2>/dev/null || true
 
 if [[ -f "$PLIST_PATH" ]]; then
   rm -f "$PLIST_PATH"
@@ -80,3 +90,4 @@ done
 
 echo "Uninstalled launch agents and app bundle."
 echo "Config/log/state kept in: $APP_SUPPORT_DIR"
+echo "Post-check: run 'pmset -g assertions' and verify no Tesla Notifier process holds sleep assertions."
