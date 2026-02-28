@@ -90,4 +90,14 @@ done
 
 echo "Uninstalled launch agents and app bundle."
 echo "Config/log/state kept in: $APP_SUPPORT_DIR"
-echo "Post-check: run 'pmset -g assertions' and verify no Tesla Notifier process holds sleep assertions."
+
+if command -v pmset >/dev/null 2>&1; then
+  ASSERTIONS_OUT="$(pmset -g assertions 2>/dev/null || true)"
+  TESLA_ASSERTIONS="$(printf '%s\n' "$ASSERTIONS_OUT" | grep -Ei 'tesla|notifier|forwarder-daemon|tesla-notifier-forwarder' || true)"
+  if [[ -n "$TESLA_ASSERTIONS" ]]; then
+    echo "Warning: Tesla Notifier-related sleep assertions are still present:"
+    printf '%s\n' "$TESLA_ASSERTIONS"
+  else
+    echo "Sleep assertion check: no Tesla Notifier-related assertions found."
+  fi
+fi
